@@ -34,9 +34,9 @@ REGION = "us-west-2"
 s3 = boto3.client('s3', region_name=REGION, config=Config(signature_version=UNSIGNED))
 paginator = s3.get_paginator("list_objects_v2")
 quarter_list = []
-for page in paginator.paginate(Bucket=BUCKET, Prefix="parquet/performance/type=mobile/"): 
+for page in paginator.paginate(Bucket=BUCKET, Prefix="parquet/performance/type=mobile/"):
     for obj in page.get("Contents", []): 
-        if obj['Key'].endswith('.parquet'): 
+        if obj['Key'].endswith('.parquet'):
             parts = obj['Key'].split('/') 
             term = {}
             term['Key'] = obj['Key']
@@ -57,27 +57,38 @@ for d in quarter_list:
         files_to_download.append(d)
 
 files_to_download.sort(key=lambda d: (d["year"], d["quarter"]))
-# for f in files_to_download:
-    # print(f"Key: {f['Key']}, Year: {f['year']}, Quarter: {f['quarter']}")
 
 ookla_file = files_to_download[-1]
 filename = ookla_file['Key'].split("/")[-1]
 folder_path = Path("data") / "bronze" / "ookla" / f"type={ookla_file['type']}" / f"year={ookla_file['year']}" / f"quarter={ookla_file['quarter']}"
 folder_path.mkdir(parents=True, exist_ok=True)
-final_path = Path(folder_path / filename)
+final_path = folder_path / filename
+need_download = True
 
-try:
-    logger.info(f"Downloading file : {filename} ...")
-    s3.download_file(BUCKET, ookla_file['Key'], str(final_path),
-    Callback=DownloadProgress(ookla_file["Size"], filename))
-except Exception:
-    logger.exception("Download Failed: %s", ookla_file['Key'])
-    raise
+if final_path.exists():
+    if final_path.stat().st_size == ookla_file['Size']:
+        logger.info("Skip, same file name and file size: %s", final_path)
+        need_download = False
+    elif final_path.stat().st_size != ookla_file['Size']:
+        logger.warning("File different (local=%s, s3=%s), Re-download: %s",
+                    final_path.stat().st_size, ookla_file["Size"], filename)
+        logger.info("Deleting existing file %s", final_path)
+        final_path.unlink(missing_ok=True)
 
+if need_download:
+    try:
+        logger.info("Downloading %s ...", filename)
+        s3.download_file(BUCKET, ookla_file['Key'], str(final_path),
+        Callback=DownloadProgress(ookla_file["Size"], filename))
+
+    except Exception:
+        logger.exception("Download Failed: %s", ookla_file['Key'])
+        raise
+
+logger.info("Validating %s ...", filename)
 local_size = final_path.stat().st_size
 if local_size != ookla_file["Size"]:
+    final_path.unlink(missing_ok=True)
     raise ValueError(f"Ukuran beda! lokal={local_size}, s3={ookla_file['Size']}")
-logger.info("Ukuran cocok: %.1f MB", local_size / 1e6)
-
-
+logger.info("File size validated! %.1f MB", local_size / 1e6)
 
