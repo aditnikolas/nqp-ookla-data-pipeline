@@ -124,7 +124,7 @@ def main(argv=None):
     args = parse_args(argv)
     logger.info("Setelan: %s", vars(args))
 
-    s3 = make_s3_client("us-west-2", read_timeout=15, 
+    s3 = make_s3_client("us-west-2", read_timeout=15, max_pool_connections=20,
                         retries={
                                 "max_attempts": 10, 
                                 "mode": "standard"

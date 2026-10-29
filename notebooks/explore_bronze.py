@@ -2,11 +2,19 @@ import duckdb as dcb
 import pyarrow.parquet as pq
 from pathlib import Path
 
-path = Path("data/bronze/ookla/type=mobile/year=2026/quarter=3/2026-07-01_performance_mobile_tiles.parquet")
-pf = pq.ParquetFile(path)
+SRC = Path("data/bronze/ookla/type=mobile/*/*/*.parquet")
+# pf = pq.ParquetFile(SRC)
 
-print(pf.metadata)
-print(pf.schema_arrow)
+print(dcb.sql(f"""
+    select year, quarter,
+        sum(tests) as id_test,
+        sum(tests) filter (
+            where (tile_x between 103.6 and 104.1) and (tile_y between 1.15 and 1.48)) as sgp_test,
+        round(100.0 * sgp_test / id_test, 1) as pct_sgp
+    from read_parquet('{SRC}', hive_partitioning=true)
+    where (tile_x between 92 and 141) and (tile_y between -11 and 6)
+    group by year, quarter
+    """))
 
 rg = pf.metadata.row_group(0)          # row group pertama
 for i in range(rg.num_columns):
