@@ -19,8 +19,9 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Create Silver Data")
     parser.add_argument("--n-quarter", type=int, default=4)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--type", choices=["mobile", "fixed"])
+    parser.add_argument("--type", choices=["mobile", "fixed"], default="mobile")
     return parser.parse_args(argv)
+    
 
 def build_silver(con, src, geo, out_path):
     con.sql(f"""
@@ -88,7 +89,7 @@ def main(argv=None):
         src_path = f"data/bronze/ookla/type={d['type']}/year={d['year']}/quarter={d['quarter']}/*.parquet"
         build_silver(con, src_path, GEO, out_path)
         
-        print(con.sql(f"SELECT COUNT(*) FROM read_parquet('{out_path}') LIMIT 5"))
+        print(con.sql(f"SELECT COUNT(*), SUM(tests) AS total_test FROM read_parquet('{out_path}') LIMIT 5"))
 
 if __name__ == "__main__":
     main()
