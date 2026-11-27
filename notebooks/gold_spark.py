@@ -116,10 +116,11 @@ def main(argv=None):
     # df.printSchema()
     for d in partition_list:
         # df_filtered = df.where(f"year={d['year']}, quarter={d['quarter']}")
-        df_filtered = df.where((F.col("year")==f"{d['year']}") & (F.col("quarter")==f"{d['quarter']}"))
+        df_filtered = df.where((F.col("type")==f"{d['type']}") & (F.col("year")==f"{d['year']}") & (F.col("quarter")==f"{d['quarter']}"))
         clean_data = df_filtered.groupBy("provinsi", "year", "quarter", "prov_id", "type").agg(
             F.count("*").alias("n_tiles"),
             F.sum(F.col("tests")).alias("tests"),
+            F.sum(F.col("devices")).alias("devices"),
             F.round((F.sum(F.col("avg_d_kbps") * F.col("tests")) / F.sum(F.col("tests")) / 1000),2).alias("dl_mbps"),
             F.round((F.sum(F.col("avg_u_kbps") * F.col("tests")) / F.sum(F.col("tests")) / 1000),2).alias("ul_mbps"),
             F.round((F.sum(F.col("avg_lat_ms") * F.col("tests")) / F.sum(F.when(F.col("avg_lat_ms").isNotNull(), F.col("tests")))),1).alias("latency_ms")
@@ -133,17 +134,8 @@ def main(argv=None):
                 logger.info("Done create gold layer in : %s", gold_dir)
                 gold_show = spark.read.parquet(str(gold_dir))
                 logger.info("Jumlah Provinsi ada : %s", gold_show.count())
-
-
-        # max_min = clean_data.groupBy("provinsi").agg(
-        #     F.max(F.col("dl_mbps")).alias("max_mbps")
-        # ).orderBy(F.desc("max_mbps"))
-        # print(max_min.show())
-        # sqltest = df_filtered.select(F.col("provinsi")).distinct().count()
-        # print(sqltest)
-
+                gold_show.show()
     spark.stop()
-
 
 if __name__ == "__main__":
     main()
