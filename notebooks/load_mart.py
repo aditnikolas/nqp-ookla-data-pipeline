@@ -143,11 +143,6 @@ def verify_load(conn, d: dict, rows: list[tuple]) -> None:
         "Verify OK %s %s Q%s: %d baris, tests %d",
         d["type"], d["year"], d["quarter"], pg_rows, pg_tests,
     )
-    """Bandingkan Postgres vs Gold untuk kuartal ini:
-       - COUNT(*) di mart == len(rows)
-       - SUM(tests) di mart == jumlah tests di rows
-    Kalau beda → raise. Kalau sama → logger.info."""
-
 
 
 def main(argv=None):
@@ -168,11 +163,6 @@ def main(argv=None):
             rows = read_gold_quarter(d)
             load_quarter(conn, d, rows)
             verify_load(conn, d, rows)
-        with conn.cursor() as cur:
-            cur.execute("""SELECT type, year, quarter, COUNT(*), SUM(tests), MAX(loaded_at)
-            FROM mart_network_quality_province
-            GROUP BY 1, 2, 3;""")
-            print("Koneksi berhasil:", cur.fetchone())
 
 
 if __name__ == "__main__":
